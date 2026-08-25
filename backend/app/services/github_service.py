@@ -160,3 +160,64 @@ class GitHubService:
             ) from exc
 
         return decoded_content
+
+    def get_repository_files(
+            self,
+            owner: str,
+            repo: str,
+            ref: str,
+            path: str = "",
+        ) -> list[str]:
+            """
+            Recursively list files in a repository at a specific Git ref.
+
+            Returns repository-relative file paths.
+            """
+
+            url = (
+                f"{self.base_url}/repos/"
+                f"{owner}/{repo}/contents/{path}"
+           )
+
+            params = {
+                "ref": ref,
+            }
+
+            response = httpx.get(
+                url,
+                headers=self.headers,
+                params=params,
+                timeout=30.0,
+            )
+
+            response.raise_for_status()
+
+            items = response.json()
+
+            if isinstance(items, dict):
+                items = [items]
+
+            files: list[str] = []
+
+            for item in items:
+
+                item_type = item.get("type")
+                item_path = item.get("path")
+
+                if not item_path:
+                    continue
+
+                if item_type == "file":
+                    files.append(item_path)
+
+                elif item_type == "dir":
+                    files.extend(
+                        self.get_repository_files(
+                            owner=owner,
+                            repo=repo,
+                            ref=ref,
+                            path=item_path,
+                        )
+                    )
+
+            return sorted(files)

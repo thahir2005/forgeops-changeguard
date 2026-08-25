@@ -10,6 +10,9 @@ DEPENDENCY_ENV_NAMES = {
     "KAFKA_HOST",
     "KAFKA_BROKERS",
     "BROKER_URL",
+
+    # Explicit service-to-service dependencies
+    "PAYMENT_API_HOST",
 }
 
 

@@ -126,11 +126,11 @@ class PRAnalysisService:
         changed_files: list[str],
     ) -> dict[str, Any]:
         """
-        Fetch complete Kubernetes manifests from the PR head,
-        discover explicitly declared dependencies, and calculate
-        their blast radius.
+        Build a repository-wide Kubernetes dependency graph
+        from the PR HEAD and calculate blast radius.
 
-        Dependencies are never guessed.
+        Dependencies are discovered only from explicit
+        Kubernetes references. No dependencies are guessed.
         """
 
         service = BlastRadiusService()
@@ -138,17 +138,50 @@ class PRAnalysisService:
         discovered_dependencies = []
         manifests_analyzed = []
 
-        for file_path in changed_files:
+        # ---------------------------------------------
+        # Discover all repository files at PR HEAD
+        # ---------------------------------------------
 
-            if not (
-                file_path.endswith(".yaml")
-                or file_path.endswith(".yml")
-            ):
-                continue
+        try:
+            repository_files = (
+                self.github.get_repository_files(
+                    owner=owner,
+                    repo=repo,
+                    ref=head_sha,
+                )
+            )
 
-            # -----------------------------------------
-            # Fetch complete file from PR HEAD
-            # -----------------------------------------
+        except Exception as exc:
+            return {
+                "status": "unavailable",
+                "reason": (
+                    "Unable to list repository files: "
+                    f"{exc}"
+                ),
+                "dependencies_discovered": 0,
+                "dependencies": [],
+                "affected_services": [],
+                "manifests_analyzed": [],
+            }
+
+        # ---------------------------------------------
+        # Select Kubernetes manifests
+        # ---------------------------------------------
+
+        kubernetes_files = [
+            path
+            for path in repository_files
+            if (
+                path.endswith(".yaml")
+                or path.endswith(".yml")
+            )
+        ]
+
+        # ---------------------------------------------
+        # Build repository-wide dependency graph
+        # ---------------------------------------------
+
+        for file_path in kubernetes_files:
 
             try:
                 content = self.github.get_file_content(
@@ -162,7 +195,7 @@ class PRAnalysisService:
                 return {
                     "status": "unavailable",
                     "reason": (
-                        f"Unable to retrieve Kubernetes "
+                        "Unable to retrieve Kubernetes "
                         f"manifest '{file_path}': {exc}"
                     ),
                     "dependencies_discovered": 0,
@@ -176,25 +209,28 @@ class PRAnalysisService:
             # -----------------------------------------
 
             try:
-                manifest = yaml.safe_load(
-                    content
-                )
+                manifest = yaml.safe_load(content)
 
-            except yaml.YAMLError:
-                continue
+            except yaml.YAMLError as exc:
+                return {
+                    "status": "unavailable",
+                    "reason": (
+                        f"Invalid YAML in '{file_path}': "
+                        f"{exc}"
+                    ),
+                    "dependencies_discovered": 0,
+                    "dependencies": [],
+                    "affected_services": [],
+                    "manifests_analyzed": [],
+                }
 
-            if not isinstance(
-                manifest,
-                dict,
-            ):
+            if not isinstance(manifest, dict):
                 continue
 
             if manifest.get("kind") != "Deployment":
                 continue
 
-            manifests_analyzed.append(
-                file_path
-            )
+            manifests_analyzed.append(file_path)
 
             # -----------------------------------------
             # Discover dependencies
@@ -211,21 +247,91 @@ class PRAnalysisService:
             )
 
         # ---------------------------------------------
-        # Calculate affected services
+        # Identify resources affected by this PR
+        # ---------------------------------------------
+
+        changed_kubernetes_files = {
+            path
+            for path in changed_files
+            if (
+                path.endswith(".yaml")
+                or path.endswith(".yml")
+            )
+        }
+
+        changed_services = set()
+
+        for dependency in discovered_dependencies:
+
+            source_service = dependency["service"]
+
+            # If the service's Kubernetes manifest changed,
+            # it is a changed resource we can analyze.
+            #
+            # The repository-wide graph has already been built,
+            # so transitive dependents can now be calculated.
+            for file_path in changed_kubernetes_files:
+
+                if file_path.endswith(
+                    f"{source_service}.yaml"
+                ) or file_path.endswith(
+                    f"{source_service}.yml"
+                ):
+                    changed_services.add(
+                        source_service
+                    )
+
+        # ---------------------------------------------
+        # Also identify changed Deployment manifests
+        # directly from their file contents.
+        # ---------------------------------------------
+
+        for file_path in changed_kubernetes_files:
+
+            try:
+                content = self.github.get_file_content(
+                    owner=owner,
+                    repo=repo,
+                    path=file_path,
+                    ref=head_sha,
+                )
+
+                manifest = yaml.safe_load(content)
+
+            except (
+                Exception,
+                yaml.YAMLError,
+            ):
+                continue
+
+            if not isinstance(manifest, dict):
+                continue
+
+            if manifest.get("kind") != "Deployment":
+                continue
+
+            metadata = manifest.get(
+                "metadata",
+                {},
+            )
+
+            service_name = metadata.get("name")
+
+            if service_name:
+                changed_services.add(
+                    service_name
+                )
+
+        # ---------------------------------------------
+        # Calculate repository-wide blast radius
         # ---------------------------------------------
 
         affected_services = set()
 
-        for dependency in discovered_dependencies:
+        for changed_service in changed_services:
 
-            dependency_name = dependency[
-                "dependency"
-            ]
-
-            affected = (
-                service.get_blast_radius(
-                    dependency_name
-                )
+            affected = service.get_blast_radius(
+                changed_service
             )
 
             affected_services.update(
@@ -239,6 +345,9 @@ class PRAnalysisService:
             ),
             "dependencies": (
                 discovered_dependencies
+            ),
+            "changed_services": sorted(
+                changed_services
             ),
             "affected_services": sorted(
                 affected_services
