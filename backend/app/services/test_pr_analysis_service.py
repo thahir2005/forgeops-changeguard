@@ -1,5 +1,3 @@
-from pprint import pprint
-
 from app.services.pr_analysis_service import (
     PRAnalysisService,
 )
@@ -57,6 +55,76 @@ def main():
             f"- {file['file']} "
             f"({file['change_type']})"
         )
+
+    # ---------------------------------------------
+    # Blast Radius
+    # ---------------------------------------------
+
+    blast_radius = analysis.get(
+        "blast_radius",
+        {},
+    )
+
+    print()
+    print("Blast Radius Analysis")
+    print("=====================")
+
+    print(
+        "Manifests analyzed:",
+        blast_radius.get(
+            "manifests_analyzed",
+            [],
+        ),
+    )
+
+    print(
+        "Dependencies discovered:",
+        blast_radius.get(
+            "dependencies_discovered",
+            0,
+        ),
+    )
+
+    dependencies = blast_radius.get(
+        "dependencies",
+        [],
+    )
+
+    if dependencies:
+
+        print()
+        print("Dependencies:")
+
+        for dependency in dependencies:
+            print(
+                f"- {dependency['service']} "
+                f"→ {dependency['dependency']} "
+                f"({dependency['source']})"
+            )
+
+    affected_services = blast_radius.get(
+        "affected_services",
+        [],
+    )
+
+    print()
+
+    if affected_services:
+
+        print("Affected Services:")
+
+        for service in affected_services:
+            print(f"- {service}")
+
+    else:
+
+        print(
+            "Affected Services: none discovered"
+        )
+
+    # ---------------------------------------------
+    # Risk
+    # ---------------------------------------------
 
     print()
     print("Risk Assessment")

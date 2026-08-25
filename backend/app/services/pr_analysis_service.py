@@ -1,7 +1,10 @@
 from typing import Any
 
+import yaml
+
 from app.services.github_service import GitHubService
 from app.services.change_service import analyze_change
+from app.services.blast_radius_service import BlastRadiusService
 
 
 class PRAnalysisService:
@@ -37,6 +40,8 @@ class PRAnalysisService:
             pull_number,
         )
 
+        head_sha = pr["head"]["sha"]
+
         # ---------------------------------------------
         # Get changed files
         # ---------------------------------------------
@@ -71,13 +76,26 @@ class PRAnalysisService:
         )
 
         # ---------------------------------------------
-        # Run ForgeOps analysis
+        # Run ForgeOps change analysis
         # ---------------------------------------------
 
         analysis = analyze_change(
             changed_files=changed_files,
             diffs=diffs,
         )
+
+        # ---------------------------------------------
+        # Analyze infrastructure dependencies
+        # ---------------------------------------------
+
+        blast_radius = self._analyze_blast_radius(
+            owner=owner,
+            repo=repo,
+            head_sha=head_sha,
+            changed_files=changed_files,
+        )
+
+        analysis["blast_radius"] = blast_radius
 
         # ---------------------------------------------
         # Add GitHub context
@@ -94,9 +112,140 @@ class PRAnalysisService:
                 "base_branch": pr["base"]["ref"],
                 "head_branch": pr["head"]["ref"],
                 "url": pr["html_url"],
+                "head_sha": head_sha,
             },
 
             "analysis": analysis,
+        }
+
+    def _analyze_blast_radius(
+        self,
+        owner: str,
+        repo: str,
+        head_sha: str,
+        changed_files: list[str],
+    ) -> dict[str, Any]:
+        """
+        Fetch complete Kubernetes manifests from the PR head,
+        discover explicitly declared dependencies, and calculate
+        their blast radius.
+
+        Dependencies are never guessed.
+        """
+
+        service = BlastRadiusService()
+
+        discovered_dependencies = []
+        manifests_analyzed = []
+
+        for file_path in changed_files:
+
+            if not (
+                file_path.endswith(".yaml")
+                or file_path.endswith(".yml")
+            ):
+                continue
+
+            # -----------------------------------------
+            # Fetch complete file from PR HEAD
+            # -----------------------------------------
+
+            try:
+                content = self.github.get_file_content(
+                    owner=owner,
+                    repo=repo,
+                    path=file_path,
+                    ref=head_sha,
+                )
+
+            except Exception as exc:
+                return {
+                    "status": "unavailable",
+                    "reason": (
+                        f"Unable to retrieve Kubernetes "
+                        f"manifest '{file_path}': {exc}"
+                    ),
+                    "dependencies_discovered": 0,
+                    "dependencies": [],
+                    "affected_services": [],
+                    "manifests_analyzed": [],
+                }
+
+            # -----------------------------------------
+            # Parse YAML
+            # -----------------------------------------
+
+            try:
+                manifest = yaml.safe_load(
+                    content
+                )
+
+            except yaml.YAMLError:
+                continue
+
+            if not isinstance(
+                manifest,
+                dict,
+            ):
+                continue
+
+            if manifest.get("kind") != "Deployment":
+                continue
+
+            manifests_analyzed.append(
+                file_path
+            )
+
+            # -----------------------------------------
+            # Discover dependencies
+            # -----------------------------------------
+
+            dependencies = (
+                service.add_kubernetes_manifest(
+                    manifest
+                )
+            )
+
+            discovered_dependencies.extend(
+                dependencies
+            )
+
+        # ---------------------------------------------
+        # Calculate affected services
+        # ---------------------------------------------
+
+        affected_services = set()
+
+        for dependency in discovered_dependencies:
+
+            dependency_name = dependency[
+                "dependency"
+            ]
+
+            affected = (
+                service.get_blast_radius(
+                    dependency_name
+                )
+            )
+
+            affected_services.update(
+                affected
+            )
+
+        return {
+            "status": "success",
+            "dependencies_discovered": (
+                len(discovered_dependencies)
+            ),
+            "dependencies": (
+                discovered_dependencies
+            ),
+            "affected_services": sorted(
+                affected_services
+            ),
+            "manifests_analyzed": (
+                manifests_analyzed
+            ),
         }
 
     @staticmethod
@@ -117,7 +266,6 @@ class PRAnalysisService:
 
             if line.startswith("diff --git "):
 
-                # Save previous file
                 if current_file is not None:
                     diffs[current_file] = (
                         "\n".join(current_lines)
@@ -125,10 +273,6 @@ class PRAnalysisService:
 
                 current_lines = []
 
-                # Example:
-                #
-                # diff --git a/file.tf b/file.tf
-                #
                 parts = line.split()
 
                 if len(parts) >= 4:
@@ -145,7 +289,6 @@ class PRAnalysisService:
 
                 current_lines.append(line)
 
-        # Save final file
         if current_file is not None:
             diffs[current_file] = (
                 "\n".join(current_lines)
