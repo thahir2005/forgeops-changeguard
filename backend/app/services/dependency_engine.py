@@ -1,7 +1,21 @@
-from collections import defaultdict
+from collections import defaultdict, deque
 
 
 class DependencyGraph:
+    """
+    Dependency graph for service/resource relationships.
+
+    Example:
+
+        payment-api -> postgres-db
+        payment-api -> redis
+        order-service -> payment-api
+
+    This means:
+        payment-api depends on postgres-db
+        order-service depends on payment-api
+    """
+
     def __init__(self):
         self.dependencies = defaultdict(set)
 
@@ -33,7 +47,8 @@ class DependencyGraph:
         changed_resource: str,
     ) -> list[str]:
         """
-        Find services directly affected by a changed resource.
+        Return services that directly depend on
+        the changed resource.
         """
 
         affected = []
@@ -42,5 +57,45 @@ class DependencyGraph:
 
             if changed_resource in dependencies:
                 affected.append(service)
+
+        return sorted(affected)
+
+    def get_blast_radius(
+        self,
+        changed_resource: str,
+    ) -> list[str]:
+        """
+        Return all services potentially affected by
+        a changed resource, including transitive dependents.
+
+        Example:
+
+            database
+                ↓
+            payment-api
+                ↓
+            checkout-service
+
+        Changing database returns:
+
+            payment-api
+            checkout-service
+        """
+
+        affected = set()
+        queue = deque([changed_resource])
+
+        while queue:
+
+            resource = queue.popleft()
+
+            for service, dependencies in self.dependencies.items():
+
+                if (
+                    resource in dependencies
+                    and service not in affected
+                ):
+                    affected.add(service)
+                    queue.append(service)
 
         return sorted(affected)
