@@ -58,3 +58,28 @@ class BlastRadiusService:
         return self.graph.get_blast_radius(
             changed_resource
         )
+
+    def get_impact_levels(
+        self,
+        changed_resource: str,
+    ) -> dict[str, list[str]]:
+        """
+        Return direct and transitive services affected
+        by a changed resource.
+        """
+
+        return self.graph.get_impact_levels(
+            changed_resource
+        )
+
+    def get_impact_levels(
+        self,
+        changed_resource: str,
+    ) -> dict[str, list[str]]:
+        """
+        Return direct and transitive impact separately.
+        """
+
+        return self.graph.get_impact_levels(
+            changed_resource
+        )

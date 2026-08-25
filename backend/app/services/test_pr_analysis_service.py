@@ -69,58 +69,59 @@ def main():
     print("Blast Radius Analysis")
     print("=====================")
 
-    print(
-        "Manifests analyzed:",
-        blast_radius.get(
-            "manifests_analyzed",
-            [],
-        ),
-    )
+    blast_radius = analysis["blast_radius"]
 
     print(
-        "Dependencies discovered:",
-        blast_radius.get(
-            "dependencies_discovered",
-            0,
-        ),
-    )
+    "Manifests analyzed: "
+    f"{blast_radius['manifests_analyzed']}"
+)
 
-    dependencies = blast_radius.get(
-        "dependencies",
-        [],
-    )
-
-    if dependencies:
-
-        print()
-        print("Dependencies:")
-
-        for dependency in dependencies:
-            print(
-                f"- {dependency['service']} "
-                f"→ {dependency['dependency']} "
-                f"({dependency['source']})"
-            )
-
-    affected_services = blast_radius.get(
-        "affected_services",
-        [],
-    )
+    print(
+    "Dependencies discovered: "
+    f"{blast_radius['dependencies_discovered']}"
+)
 
     print()
+    print("Dependencies:")
 
-    if affected_services:
-
-        print("Affected Services:")
-
-        for service in affected_services:
-            print(f"- {service}")
-
-    else:
-
+    for dependency in blast_radius["dependencies"]:
         print(
-            "Affected Services: none discovered"
+           f"- {dependency['service']} → "
+           f"{dependency['dependency']} "
+           f"({dependency['source']})"
         )
+
+    print()
+    print("Directly Affected:")
+
+    direct = blast_radius[
+      "directly_affected_services"
+    ]
+
+    if direct:
+      for service in direct:
+         print(f"- {service}")
+    else:
+      print("- none")
+
+    print()
+    print("Transitively Affected:")
+
+    transitive = blast_radius[
+      "transitively_affected_services"
+    ]
+
+    if transitive:
+       for service in transitive:
+          print(f"- {service}")
+    else:
+          print("- none")
+
+    print()
+    print(
+    "Total Blast Radius: "
+    f"{blast_radius['blast_radius_count']} services"
+)
 
     # ---------------------------------------------
     # Risk

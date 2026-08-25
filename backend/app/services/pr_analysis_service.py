@@ -326,17 +326,31 @@ class PRAnalysisService:
         # Calculate repository-wide blast radius
         # ---------------------------------------------
 
-        affected_services = set()
+        directly_affected_services = set()
+        transitively_affected_services = set()
 
-        for changed_service in changed_services:
+        for dependency in discovered_dependencies:
 
-            affected = service.get_blast_radius(
-                changed_service
+            dependency_name = dependency[
+                "dependency"
+            ]
+
+            impact = service.get_impact_levels(
+                dependency_name
             )
 
-            affected_services.update(
-                affected
+            directly_affected_services.update(
+                impact["directly_affected"]
             )
+
+            transitively_affected_services.update(
+                impact["transitively_affected"]
+            )
+
+            total_affected_services = (
+            directly_affected_services
+            | transitively_affected_services
+        )
 
         return {
             "status": "success",
@@ -346,11 +360,17 @@ class PRAnalysisService:
             "dependencies": (
                 discovered_dependencies
             ),
-            "changed_services": sorted(
-                changed_services
+            "directly_affected_services": sorted(
+                directly_affected_services
+            ),
+            "transitively_affected_services": sorted(
+                transitively_affected_services
             ),
             "affected_services": sorted(
-                affected_services
+                total_affected_services
+            ),
+            "blast_radius_count": len(
+                total_affected_services
             ),
             "manifests_analyzed": (
                 manifests_analyzed

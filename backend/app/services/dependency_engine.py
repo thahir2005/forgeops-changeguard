@@ -67,23 +67,31 @@ class DependencyGraph:
         """
         Return all services potentially affected by
         a changed resource, including transitive dependents.
-
-        Example:
-
-            database
-                ↓
-            payment-api
-                ↓
-            checkout-service
-
-        Changing database returns:
-
-            payment-api
-            checkout-service
         """
 
-        affected = set()
-        queue = deque([changed_resource])
+        return self.get_impact_levels(
+            changed_resource
+        )["total_affected"]
+
+
+    def get_impact_levels(
+        self,
+        changed_resource: str,
+    ) -> dict[str, list[str]]:
+        """
+        Classify affected services into direct and
+        transitive dependents.
+        """
+
+        directly_affected = set(
+            self.get_affected_services(
+                changed_resource
+            )
+        )
+
+        transitively_affected = set()
+
+        queue = deque(directly_affected)
 
         while queue:
 
@@ -93,9 +101,105 @@ class DependencyGraph:
 
                 if (
                     resource in dependencies
-                    and service not in affected
+                    and service not in directly_affected
+                    and service not in transitively_affected
                 ):
-                    affected.add(service)
+                    transitively_affected.add(service)
                     queue.append(service)
 
-        return sorted(affected)
+        total_affected = (
+            directly_affected
+            | transitively_affected
+        )
+
+        return {
+            "directly_affected": sorted(
+                directly_affected
+            ),
+            "transitively_affected": sorted(
+                transitively_affected
+            ),
+            "total_affected": sorted(
+                total_affected
+            ),
+        }
+
+    def get_impact_levels(
+        self,
+        changed_resource: str,
+    ) -> dict[str, list[str]]:
+        """
+        Return direct and transitive impact separately.
+
+        Example:
+
+            postgres-db
+                ↓
+            payment-api
+                ↓
+            checkout-service
+
+        Returns:
+
+            {
+                "directly_affected": [
+                    "payment-api"
+                ],
+                "transitively_affected": [
+                    "checkout-service"
+                ],
+                "total_affected": [
+                    "checkout-service",
+                    "payment-api"
+                ]
+            }
+        """
+
+        directly_affected = set(
+            self.get_affected_services(
+                changed_resource
+            )
+        )
+
+        transitively_affected = set()
+
+        queue = deque(
+            directly_affected
+        )
+
+        visited = set(
+            directly_affected
+        )
+
+        while queue:
+
+            resource = queue.popleft()
+
+            for service, dependencies in self.dependencies.items():
+
+                if (
+                    resource in dependencies
+                    and service not in visited
+                ):
+                    visited.add(service)
+                    transitively_affected.add(
+                        service
+                    )
+                    queue.append(service)
+
+        total_affected = (
+            directly_affected
+            | transitively_affected
+        )
+
+        return {
+            "directly_affected": sorted(
+                directly_affected
+            ),
+            "transitively_affected": sorted(
+                transitively_affected
+            ),
+            "total_affected": sorted(
+                total_affected
+            ),
+        }
