@@ -434,3 +434,20 @@
     grid-column: span 2;
   }
 }
+
+.decision-score {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.decision-score span {
+  color: #8c93a1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.decision-score strong {
+  font-size: 20px;
+}

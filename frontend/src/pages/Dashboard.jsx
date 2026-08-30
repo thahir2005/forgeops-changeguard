@@ -239,7 +239,9 @@ function Dashboard() {
             </section>
 
 
-            <section className="panel decision-card">
+            <section
+              className={`panel decision-card decision-${risk.decision}`}
+            >
 
               <div>
                 <p className="eyebrow">
@@ -261,6 +263,11 @@ function Dashboard() {
                       ? "Change should not proceed."
                       : "Human review is required."}
                 </span>
+              </div>
+
+              <div className="decision-score">
+                <span>Risk Score</span>
+                <strong>{risk.overall_score}/100</strong>
               </div>
 
             </section>
