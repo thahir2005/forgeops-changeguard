@@ -5,6 +5,12 @@ RISK_VALUES = {
     "critical": 100,
 }
 
+RISK_WEIGHTS = {
+    "reliability": 0.4,
+    "security": 0.3,
+    "cost": 0.3,
+}
+
 
 def calculate_blast_radius_score(
     directly_affected: int,
@@ -273,16 +279,50 @@ def calculate_overall_risk(
     )
 
     # -------------------------------------------------
-    # Overall risk
+    # Weighted risk breakdown
     # -------------------------------------------------
 
-    overall_score = round(
-        (
-            reliability_score * 0.4
-            + security_score * 0.3
-            + cost_score * 0.3
-        )
+    reliability_contribution = round(
+        reliability_score
+        * RISK_WEIGHTS["reliability"]
     )
+
+    security_contribution = round(
+        security_score
+        * RISK_WEIGHTS["security"]
+    )
+
+    cost_contribution = round(
+        cost_score
+        * RISK_WEIGHTS["cost"]
+    )
+
+    overall_score = (
+        reliability_contribution
+        + security_contribution
+        + cost_contribution
+    )
+
+    risk_breakdown = [
+        {
+            "factor": "Reliability",
+            "score": reliability_score,
+            "weight": RISK_WEIGHTS["reliability"],
+            "contribution": reliability_contribution,
+        },
+        {
+            "factor": "Security",
+            "score": security_score,
+            "weight": RISK_WEIGHTS["security"],
+            "contribution": security_contribution,
+        },
+        {
+            "factor": "Cost",
+            "score": cost_score,
+            "weight": RISK_WEIGHTS["cost"],
+            "contribution": cost_contribution,
+        },
+    ]
 
     # -------------------------------------------------
     # Risk category
@@ -301,7 +341,7 @@ def calculate_overall_risk(
         category = "low"
 
     decision = determine_risk_decision(
-    overall_score
+        overall_score
     )
 
     return {
@@ -311,8 +351,8 @@ def calculate_overall_risk(
         "security_score": security_score,
         "cost_score": cost_score,
         "blast_radius_score": blast_radius_score,
+        "risk_breakdown": risk_breakdown,
         "reasons": reasons,
-
         "decision": decision["decision"],
         "decision_label": decision["label"],
         "decision_message": decision["message"],

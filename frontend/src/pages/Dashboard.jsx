@@ -254,6 +254,88 @@ function Dashboard() {
             </section>
 
 
+            {risk.risk_breakdown && (
+              <section className="panel">
+
+                <div className="panel-header">
+
+                  <div>
+                    <p className="eyebrow">
+                      RISK BREAKDOWN
+                    </p>
+
+                    <h3>
+                      Weighted Risk Factors
+                    </h3>
+                  </div>
+
+                  <span>
+                    {risk.risk_breakdown.length} factors
+                  </span>
+
+                </div>
+
+
+                <div className="risk-breakdown">
+
+                  {risk.risk_breakdown.map(
+                    (item) => (
+                      <div
+                        className="risk-breakdown-item"
+                        key={item.factor}
+                      >
+
+                        <div className="risk-breakdown-main">
+
+                          <div>
+                            <strong>
+                              {item.factor}
+                            </strong>
+
+                            <span>
+                              {Math.round(item.weight * 100)}% weight
+                            </span>
+                          </div>
+
+                          <strong>
+                            {item.contribution}
+                          </strong>
+
+                        </div>
+
+
+                        <div className="risk-breakdown-bar">
+
+                          <div
+                            className="risk-breakdown-fill"
+                            style={{
+                              width: `${item.score}%`,
+                            }}
+                          />
+
+                        </div>
+
+
+                        <div className="risk-breakdown-meta">
+                          <span>
+                            Score: {item.score}/100
+                          </span>
+
+                          <span>
+                            Contribution: {item.contribution}
+                          </span>
+                        </div>
+
+                      </div>
+                    )
+                  )}
+
+                </div>
+
+              </section>
+            )}
+
+
             {blastRadius && (
               <section className="panel">
 
