@@ -14,3 +14,9 @@ class Change(BaseModel):
 class ChangeAnalysisRequest(BaseModel):
     changed_files: list[str]
     diffs: dict[str, str]
+
+
+class PullRequestAnalysisRequest(BaseModel):
+    owner: str
+    repo: str
+    pull_number: int
