@@ -3,9 +3,9 @@ import { analyzePullRequest } from "../services/api";
 
 
 function Dashboard() {
-  const [owner, setOwner] = useState("thahir2005");
-  const [repo, setRepo] = useState("forgeops-changeguard-demo");
-  const [pullNumber, setPullNumber] = useState("1");
+  const [prUrl, setPrUrl] = useState(
+    "https://github.com/thahir2005/forgeops-changeguard-demo/pull/1"
+  );
 
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,10 +20,22 @@ function Dashboard() {
     setResult(null);
 
     try {
+      const match = prUrl.trim().match(
+        /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)\/?$/
+      );
+
+      if (!match) {
+        throw new Error(
+          "Enter a valid GitHub pull request URL."
+        );
+      }
+
+      const [, parsedOwner, parsedRepo, parsedPullNumber] = match;
+
       const data = await analyzePullRequest({
-        owner: owner.trim(),
-        repo: repo.trim(),
-        pull_number: Number(pullNumber),
+        owner: parsedOwner,
+        repo: parsedRepo,
+        pull_number: Number(parsedPullNumber),
       });
 
       setResult(data);
@@ -86,36 +98,13 @@ function Dashboard() {
               onSubmit={runAnalysis}
             >
               <input
-                type="text"
-                placeholder="Owner"
-                value={owner}
+                type="url"
+                placeholder="https://github.com/owner/repository/pull/123"
+                value={prUrl}
                 onChange={(event) =>
-                  setOwner(event.target.value)
+                  setPrUrl(event.target.value)
                 }
-                aria-label="GitHub owner"
-                required
-              />
-
-              <input
-                type="text"
-                placeholder="Repository"
-                value={repo}
-                onChange={(event) =>
-                  setRepo(event.target.value)
-                }
-                aria-label="GitHub repository"
-                required
-              />
-
-              <input
-                type="number"
-                min="1"
-                placeholder="PR #"
-                value={pullNumber}
-                onChange={(event) =>
-                  setPullNumber(event.target.value)
-                }
-                aria-label="Pull request number"
+                aria-label="GitHub pull request URL"
                 required
               />
 
@@ -249,19 +238,11 @@ function Dashboard() {
                 </p>
 
                 <h3>
-                  {risk.decision === "safe"
-                    ? "SAFE TO PROCEED"
-                    : risk.decision === "block"
-                      ? "BLOCK DEPLOYMENT"
-                      : "REVIEW REQUIRED"}
+                  {risk.decision_label}
                 </h3>
 
                 <span>
-                  {risk.decision === "safe"
-                    ? "Change can proceed."
-                    : risk.decision === "block"
-                      ? "Change should not proceed."
-                      : "Human review is required."}
+                  {risk.decision_message}
                 </span>
               </div>
 
