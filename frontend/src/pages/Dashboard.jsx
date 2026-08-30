@@ -477,6 +477,56 @@ function Dashboard() {
 
             </section>
 
+
+                        {analysis.recommendations &&
+              analysis.recommendations.length > 0 && (
+                <section className="panel">
+
+                  <div className="panel-header">
+
+                    <div>
+                      <p className="eyebrow">
+                        RECOMMENDATIONS
+                      </p>
+
+                      <h3>
+                        Recommended Actions
+                      </h3>
+                    </div>
+
+                    <span>
+                      {analysis.recommendations.length} actions
+                    </span>
+
+                  </div>
+
+
+                  <div className="recommendations">
+
+                    {analysis.recommendations.map(
+                      (recommendation, index) => (
+                        <div
+                          className="recommendation"
+                          key={`${recommendation}-${index}`}
+                        >
+
+                          <span>
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+
+                          <p>
+                            {recommendation}
+                          </p>
+
+                        </div>
+                      )
+                    )}
+
+                  </div>
+
+                </section>
+              )}
+
           </>
         )}
 

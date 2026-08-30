@@ -451,3 +451,26 @@
 .decision-score strong {
   font-size: 20px;
 }
+
+
+.recommendation {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 0;
+  border-top: 1px solid #20242d;
+}
+
+.recommendation > span {
+  min-width: 32px;
+  color: #8c93a1;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.recommendation p {
+  margin: 0;
+  color: #c1c7d0;
+  line-height: 1.5;
+}

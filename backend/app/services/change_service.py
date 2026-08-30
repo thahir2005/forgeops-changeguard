@@ -5,6 +5,7 @@ from app.services.kubernetes_analyzer import analyze_kubernetes_change
 from app.services.kubernetes_impact import analyze_kubernetes_impact
 from app.services.security_analyzer import analyze_security_change
 from app.services.risk_engine import calculate_overall_risk
+from app.services.recommendation_service import generate_recommendations
 
 
 def analyze_change(
@@ -111,18 +112,28 @@ def analyze_change(
     # Unified risk
     # -------------------------------------------------
 
+    directly_affected_services = (
+        directly_affected_services or []
+    )
+
+    transitively_affected_services = (
+        transitively_affected_services or []
+    )
+
     risk = calculate_overall_risk(
         terraform_impacts=terraform_impacts,
         kubernetes_impacts=kubernetes_impacts,
         security_findings=security_findings,
-        directly_affected_services=(
-            directly_affected_services
-            or []
-        ),
-        transitively_affected_services=(
-            transitively_affected_services
-            or []
-        ),
+        directly_affected_services=directly_affected_services,
+        transitively_affected_services=transitively_affected_services,
+    )
+
+    recommendations = generate_recommendations(
+        terraform_impacts=terraform_impacts,
+        kubernetes_impacts=kubernetes_impacts,
+        security_findings=security_findings,
+        directly_affected_services=directly_affected_services,
+        transitively_affected_services=transitively_affected_services,
     )
 
     return {
@@ -132,4 +143,5 @@ def analyze_change(
         "kubernetes_impacts": kubernetes_impacts,
         "security_findings": security_findings,
         "risk": risk,
+        "recommendations": recommendations,
     }
