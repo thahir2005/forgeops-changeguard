@@ -31,14 +31,11 @@ class BlastRadiusService:
         and add them to the dependency graph.
         """
 
-        dependencies = (
-            discover_kubernetes_dependencies(
-                manifest
-            )
+        dependencies = discover_kubernetes_dependencies(
+            manifest
         )
 
         for item in dependencies:
-
             self.graph.add_dependency(
                 item["service"],
                 item["dependency"],
@@ -56,19 +53,6 @@ class BlastRadiusService:
         """
 
         return self.graph.get_blast_radius(
-            changed_resource
-        )
-
-    def get_impact_levels(
-        self,
-        changed_resource: str,
-    ) -> dict[str, list[str]]:
-        """
-        Return direct and transitive services affected
-        by a changed resource.
-        """
-
-        return self.graph.get_impact_levels(
             changed_resource
         )
 

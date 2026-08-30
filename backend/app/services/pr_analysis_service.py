@@ -79,15 +79,6 @@ class PRAnalysisService:
         # Run ForgeOps change analysis
         # ---------------------------------------------
 
-        analysis = analyze_change(
-            changed_files=changed_files,
-            diffs=diffs,
-        )
-
-        # ---------------------------------------------
-        # Analyze infrastructure dependencies
-        # ---------------------------------------------
-
         blast_radius = self._analyze_blast_radius(
             owner=owner,
             repo=repo,
@@ -95,7 +86,24 @@ class PRAnalysisService:
             changed_files=changed_files,
         )
 
+        analysis = analyze_change(
+            changed_files=changed_files,
+            diffs=diffs,
+            directly_affected_services=(
+                blast_radius["directly_affected_services"]
+            ),
+            transitively_affected_services=(
+                blast_radius["transitively_affected_services"]
+            ),
+        )
+
         analysis["blast_radius"] = blast_radius
+
+        # ---------------------------------------------
+        # Analyze infrastructure dependencies
+        # ---------------------------------------------
+
+
 
         # ---------------------------------------------
         # Add GitHub context
@@ -329,25 +337,35 @@ class PRAnalysisService:
         directly_affected_services = set()
         transitively_affected_services = set()
 
-        for dependency in discovered_dependencies:
-
-            dependency_name = dependency[
-                "dependency"
-            ]
+        for changed_resource in changed_services:
 
             impact = service.get_impact_levels(
-                dependency_name
+                changed_resource
             )
 
             directly_affected_services.update(
-                impact["directly_affected"]
+                impact.get(
+                    "directly_affected",
+                    [],
+                )
             )
 
             transitively_affected_services.update(
-                impact["transitively_affected"]
+                impact.get(
+                    "transitively_affected",
+                    [],
+                )
             )
 
-            total_affected_services = (
+        # A service that is directly affected should not also
+        # appear in the transitive set.
+                # A service classified as direct should never also appear
+        # as transitive.
+        transitively_affected_services -= (
+            directly_affected_services
+        )
+
+        affected_services = (
             directly_affected_services
             | transitively_affected_services
         )
@@ -367,10 +385,10 @@ class PRAnalysisService:
                 transitively_affected_services
             ),
             "affected_services": sorted(
-                total_affected_services
+                affected_services
             ),
             "blast_radius_count": len(
-                total_affected_services
+                affected_services
             ),
             "manifests_analyzed": (
                 manifests_analyzed

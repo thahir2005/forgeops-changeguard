@@ -10,6 +10,8 @@ from app.services.risk_engine import calculate_overall_risk
 def analyze_change(
     changed_files: list[str],
     diffs: dict[str, str],
+    directly_affected_services: list[str] | None = None,
+    transitively_affected_services: list[str] | None = None,
 ) -> dict:
     """
     Run the complete ForgeOps change analysis pipeline.
@@ -113,6 +115,14 @@ def analyze_change(
         terraform_impacts=terraform_impacts,
         kubernetes_impacts=kubernetes_impacts,
         security_findings=security_findings,
+        directly_affected_services=(
+            directly_affected_services
+            or []
+        ),
+        transitively_affected_services=(
+            transitively_affected_services
+            or []
+        ),
     )
 
     return {
