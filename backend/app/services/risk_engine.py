@@ -65,6 +65,44 @@ def _deduplicate_reasons(
     return unique_reasons
 
 
+def determine_risk_decision(
+    overall_score: int,
+) -> dict:
+    """
+    Convert the overall risk score into an
+    actionable deployment decision.
+    """
+
+    if overall_score >= 76:
+        return {
+            "decision": "block",
+            "label": "BLOCK",
+            "message": (
+                "This change should not proceed "
+                "without risk mitigation."
+            ),
+        }
+
+    if overall_score >= 26:
+        return {
+            "decision": "review_required",
+            "label": "REVIEW REQUIRED",
+            "message": (
+                "This change requires review "
+                "before deployment."
+            ),
+        }
+
+    return {
+        "decision": "safe",
+        "label": "SAFE",
+        "message": (
+            "No significant risk was detected. "
+            "The change can proceed."
+        ),
+    }
+
+
 def calculate_overall_risk(
     terraform_impacts: list[dict],
     kubernetes_impacts: list[dict],
@@ -262,6 +300,10 @@ def calculate_overall_risk(
     else:
         category = "low"
 
+    decision = determine_risk_decision(
+    overall_score
+    )
+
     return {
         "overall_score": overall_score,
         "category": category,
@@ -270,4 +312,8 @@ def calculate_overall_risk(
         "cost_score": cost_score,
         "blast_radius_score": blast_radius_score,
         "reasons": reasons,
+
+        "decision": decision["decision"],
+        "decision_label": decision["label"],
+        "decision_message": decision["message"],
     }

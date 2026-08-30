@@ -239,6 +239,33 @@ function Dashboard() {
             </section>
 
 
+            <section className="panel decision-card">
+
+              <div>
+                <p className="eyebrow">
+                  DEPLOYMENT DECISION
+                </p>
+
+                <h3>
+                  {risk.decision === "safe"
+                    ? "SAFE TO PROCEED"
+                    : risk.decision === "block"
+                      ? "BLOCK DEPLOYMENT"
+                      : "REVIEW REQUIRED"}
+                </h3>
+
+                <span>
+                  {risk.decision === "safe"
+                    ? "Change can proceed."
+                    : risk.decision === "block"
+                      ? "Change should not proceed."
+                      : "Human review is required."}
+                </span>
+              </div>
+
+            </section>
+
+
             {blastRadius && (
               <section className="panel">
 
