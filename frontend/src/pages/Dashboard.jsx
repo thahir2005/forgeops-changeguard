@@ -1,54 +1,48 @@
 import { useState } from "react";
-import { analyzeChange } from "../services/api";
-
-
-const examplePayload = {
-  changed_files: [
-    "infrastructure/terraform/main.tf",
-    "infrastructure/kubernetes/deployment.yaml",
-  ],
-
-  diffs: {
-    "infrastructure/terraform/main.tf": `--- a/infrastructure/terraform/main.tf
-+++ b/infrastructure/terraform/main.tf
-@@ -10,7 +10,7 @@
- resource "aws_instance" "app" {
--  instance_type = "t3.medium"
-+  instance_type = "t3.2xlarge"
- }`,
-
-    "infrastructure/kubernetes/deployment.yaml": `--- a/infrastructure/kubernetes/deployment.yaml
-+++ b/infrastructure/kubernetes/deployment.yaml
-@@ -10,7 +10,7 @@
- spec:
--  replicas: 3
-+  replicas: 1`,
-  },
-};
+import { analyzePullRequest } from "../services/api";
 
 
 function Dashboard() {
+  const [owner, setOwner] = useState("thahir2005");
+  const [repo, setRepo] = useState("forgeops-changeguard-demo");
+  const [pullNumber, setPullNumber] = useState("1");
+
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
 
-  async function runAnalysis() {
+  async function runAnalysis(event) {
+    event.preventDefault();
+
     setLoading(true);
     setError("");
+    setResult(null);
 
     try {
-      const data = await analyzeChange(
-        examplePayload
-      );
+      const data = await analyzePullRequest({
+        owner: owner.trim(),
+        repo: repo.trim(),
+        pull_number: Number(pullNumber),
+      });
 
       setResult(data);
     } catch (err) {
-      setError(err.message);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to analyze pull request."
+      );
     } finally {
       setLoading(false);
     }
   }
+
+
+  const analysis = result?.analysis;
+  const risk = analysis?.risk;
+  const blastRadius = analysis?.blast_radius;
+  const pullRequest = result?.pull_request;
 
 
   return (
@@ -70,6 +64,7 @@ function Dashboard() {
       <main className="content">
 
         <section className="hero">
+
           <div>
             <p className="eyebrow">
               CHANGE INTELLIGENCE
@@ -81,21 +76,62 @@ function Dashboard() {
             </h2>
 
             <p className="description">
-              Analyze infrastructure and
-              application changes before
-              they reach production.
+              Analyze a GitHub pull request before
+              changes reach production.
             </p>
+
+
+            <form
+              className="pr-form"
+              onSubmit={runAnalysis}
+            >
+              <input
+                type="text"
+                placeholder="Owner"
+                value={owner}
+                onChange={(event) =>
+                  setOwner(event.target.value)
+                }
+                aria-label="GitHub owner"
+                required
+              />
+
+              <input
+                type="text"
+                placeholder="Repository"
+                value={repo}
+                onChange={(event) =>
+                  setRepo(event.target.value)
+                }
+                aria-label="GitHub repository"
+                required
+              />
+
+              <input
+                type="number"
+                min="1"
+                placeholder="PR #"
+                value={pullNumber}
+                onChange={(event) =>
+                  setPullNumber(event.target.value)
+                }
+                aria-label="Pull request number"
+                required
+              />
+
+              <button
+                className="analyze-button"
+                type="submit"
+                disabled={loading}
+              >
+                {loading
+                  ? "Analyzing..."
+                  : "Analyze PR"}
+              </button>
+            </form>
+
           </div>
 
-          <button
-            className="analyze-button"
-            onClick={runAnalysis}
-            disabled={loading}
-          >
-            {loading
-              ? "Analyzing..."
-              : "Analyze Change"}
-          </button>
         </section>
 
 
@@ -106,7 +142,56 @@ function Dashboard() {
         )}
 
 
-        {result && (
+        {pullRequest && (
+          <section className="panel">
+
+            <div className="pr-summary">
+
+              <div>
+                <p className="eyebrow">
+                  PULL REQUEST
+                </p>
+
+                <h3>
+                  #{pullRequest.number}{" "}
+                  {pullRequest.title}
+                </h3>
+
+                <p className="description">
+                  {result.repository}
+                </p>
+              </div>
+
+
+              <div className="pr-meta">
+
+                <span>
+                  {pullRequest.head_branch}
+                  {" → "}
+                  {pullRequest.base_branch}
+                </span>
+
+                <span>
+                  {pullRequest.author}
+                </span>
+
+                <a
+                  href={pullRequest.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View PR
+                </a>
+
+              </div>
+
+            </div>
+
+          </section>
+        )}
+
+
+        {risk && (
           <>
 
             <section className="risk-section">
@@ -115,45 +200,171 @@ function Dashboard() {
                 <p>OVERALL RISK</p>
 
                 <div className="risk-score">
-                  {result.risk.overall_score}
+                  {risk.overall_score}
                   <span>/100</span>
                 </div>
 
                 <strong>
-                  {result.risk.category.toUpperCase()}
+                  {risk.category.toUpperCase()}
                 </strong>
               </div>
 
 
               <div className="metric">
                 <span>Reliability</span>
+
                 <strong>
-                  {result.risk.reliability_score}
+                  {risk.reliability_score}
                 </strong>
               </div>
 
 
               <div className="metric">
                 <span>Security</span>
+
                 <strong>
-                  {result.risk.security_score}
+                  {risk.security_score}
                 </strong>
               </div>
 
 
               <div className="metric">
                 <span>Cost</span>
+
                 <strong>
-                  {result.risk.cost_score}
+                  {risk.cost_score}
                 </strong>
               </div>
 
             </section>
 
 
+            {blastRadius && (
+              <section className="panel">
+
+                <div className="panel-header">
+
+                  <div>
+                    <p className="eyebrow">
+                      DEPENDENCY ANALYSIS
+                    </p>
+
+                    <h3>
+                      Blast Radius
+                    </h3>
+                  </div>
+
+                  <span>
+                    {blastRadius.blast_radius_count}{" "}
+                    {blastRadius.blast_radius_count === 1
+                      ? "service"
+                      : "services"}
+                  </span>
+
+                </div>
+
+
+                <div className="impact-grid">
+
+                  <div className="impact-column">
+                    <h4>
+                      Directly Affected
+                    </h4>
+
+                    {blastRadius
+                      .directly_affected_services
+                      .length > 0 ? (
+                        blastRadius
+                          .directly_affected_services
+                          .map((service) => (
+                            <div
+                              className="impact-item"
+                              key={service}
+                            >
+                              {service}
+                            </div>
+                          ))
+                      ) : (
+                        <div className="impact-item">
+                          No direct impact
+                        </div>
+                      )}
+                  </div>
+
+
+                  <div className="impact-column">
+                    <h4>
+                      Transitively Affected
+                    </h4>
+
+                    {blastRadius
+                      .transitively_affected_services
+                      .length > 0 ? (
+                        blastRadius
+                          .transitively_affected_services
+                          .map((service) => (
+                            <div
+                              className="impact-item"
+                              key={service}
+                            >
+                              {service}
+                            </div>
+                          ))
+                      ) : (
+                        <div className="impact-item">
+                          No transitive impact
+                        </div>
+                      )}
+                  </div>
+
+                </div>
+
+
+                <div className="dependencies">
+
+                  <h4>
+                    Discovered Dependencies
+                  </h4>
+
+                  {blastRadius.dependencies.length > 0 ? (
+                    blastRadius.dependencies.map(
+                      (dependency, index) => (
+                        <div
+                          className="dependency"
+                          key={`${dependency.service}-${dependency.dependency}-${index}`}
+                        >
+                          <strong>
+                            {dependency.service}
+                          </strong>
+
+                          <span>→</span>
+
+                          <strong>
+                            {dependency.dependency}
+                          </strong>
+
+                          <small>
+                            {dependency.source}
+                          </small>
+                        </div>
+                      )
+                    )
+                  ) : (
+                    <p>
+                      No explicit dependencies discovered.
+                    </p>
+                  )}
+
+                </div>
+
+              </section>
+            )}
+
+
             <section className="panel">
 
               <div className="panel-header">
+
                 <div>
                   <p className="eyebrow">
                     CHANGE ANALYSIS
@@ -165,19 +376,21 @@ function Dashboard() {
                 </div>
 
                 <span>
-                  {result.files_changed} files
+                  {analysis.files_changed} files
                 </span>
+
               </div>
 
 
               <div className="file-list">
 
-                {result.files.map(
+                {analysis.files.map(
                   (file) => (
                     <div
                       className="file"
                       key={file.file}
                     >
+
                       <div>
                         <strong>
                           {file.file}
@@ -188,7 +401,9 @@ function Dashboard() {
                         </span>
                       </div>
 
+
                       <div className="diff-count">
+
                         <span>
                           +{file.added_lines.length}
                         </span>
@@ -196,7 +411,9 @@ function Dashboard() {
                         <span>
                           -{file.removed_lines.length}
                         </span>
+
                       </div>
+
                     </div>
                   )
                 )}
@@ -220,16 +437,20 @@ function Dashboard() {
                   </h3>
                 </div>
 
+                <span>
+                  {risk.reasons.length} factors
+                </span>
+
               </div>
 
 
               <div className="reasons">
 
-                {result.risk.reasons.map(
+                {risk.reasons.map(
                   (reason, index) => (
                     <div
                       className="reason"
-                      key={index}
+                      key={`${reason}-${index}`}
                     >
                       <span>!</span>
                       <p>{reason}</p>

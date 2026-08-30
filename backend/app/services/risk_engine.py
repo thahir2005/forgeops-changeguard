@@ -12,9 +12,6 @@ def calculate_blast_radius_score(
 ) -> int:
     """
     Calculate a risk score from dependency blast radius.
-
-    Direct dependencies represent immediate impact.
-    Transitive dependencies represent cascading impact.
     """
 
     total_affected = (
@@ -34,13 +31,38 @@ def calculate_blast_radius_score(
     else:
         base_score = 20
 
-    # Cascading impact increases the risk.
     if transitively_affected >= 3:
         base_score += 20
     elif transitively_affected >= 1:
         base_score += 10
 
     return min(base_score, 100)
+
+
+def _deduplicate_reasons(
+    reasons: list[str],
+) -> list[str]:
+    """
+    Remove duplicate risk explanations while preserving
+    their original order.
+    """
+
+    seen = set()
+    unique_reasons = []
+
+    for reason in reasons:
+        normalized = reason.strip()
+
+        if not normalized:
+            continue
+
+        if normalized in seen:
+            continue
+
+        seen.add(normalized)
+        unique_reasons.append(normalized)
+
+    return unique_reasons
 
 
 def calculate_overall_risk(
@@ -176,6 +198,12 @@ def calculate_overall_risk(
         )
 
     # -------------------------------------------------
+    # Remove duplicate explanations
+    # -------------------------------------------------
+
+    reasons = _deduplicate_reasons(reasons)
+
+    # -------------------------------------------------
     # Maximum signal per category
     # -------------------------------------------------
 
@@ -198,16 +226,17 @@ def calculate_overall_risk(
     )
 
     # -------------------------------------------------
-    # Overall risk
+    # Blast radius contributes to reliability
     # -------------------------------------------------
 
-    # Blast radius contributes to reliability because
-    # dependency failures primarily represent an
-    # operational/reliability risk.
     reliability_score = max(
         reliability_score,
         blast_radius_score,
     )
+
+    # -------------------------------------------------
+    # Overall risk
+    # -------------------------------------------------
 
     overall_score = round(
         (

@@ -80,11 +80,12 @@ class PRAnalysisService:
         # ---------------------------------------------
 
         blast_radius = self._analyze_blast_radius(
-            owner=owner,
-            repo=repo,
-            head_sha=head_sha,
-            changed_files=changed_files,
-        )
+    owner=owner,
+    repo=repo,
+    head_sha=head_sha,
+    changed_files=changed_files,
+    github_files=github_files,
+)
 
         analysis = analyze_change(
             changed_files=changed_files,
@@ -127,12 +128,13 @@ class PRAnalysisService:
         }
 
     def _analyze_blast_radius(
-        self,
-        owner: str,
-        repo: str,
-        head_sha: str,
-        changed_files: list[str],
-    ) -> dict[str, Any]:
+    self,
+    owner: str,
+    repo: str,
+    head_sha: str,
+    changed_files: list[str],
+    github_files: list[dict[str, Any]],
+) -> dict[str, Any]:
         """
         Build a repository-wide Kubernetes dependency graph
         from the PR HEAD and calculate blast radius.
@@ -259,35 +261,15 @@ class PRAnalysisService:
         # ---------------------------------------------
 
         changed_kubernetes_files = {
-            path
-            for path in changed_files
-            if (
-                path.endswith(".yaml")
-                or path.endswith(".yml")
-            )
-        }
+    path
+    for path in changed_files
+    if (
+        path.endswith(".yaml")
+        or path.endswith(".yml")
+    )
+}
 
         changed_services = set()
-
-        for dependency in discovered_dependencies:
-
-            source_service = dependency["service"]
-
-            # If the service's Kubernetes manifest changed,
-            # it is a changed resource we can analyze.
-            #
-            # The repository-wide graph has already been built,
-            # so transitive dependents can now be calculated.
-            for file_path in changed_kubernetes_files:
-
-                if file_path.endswith(
-                    f"{source_service}.yaml"
-                ) or file_path.endswith(
-                    f"{source_service}.yml"
-                ):
-                    changed_services.add(
-                        source_service
-                    )
 
         # ---------------------------------------------
         # Also identify changed Deployment manifests
