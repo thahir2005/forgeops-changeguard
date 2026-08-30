@@ -114,7 +114,7 @@ assert blast_radius_result["reliability_score"] == 50
 assert blast_radius_result["security_score"] == 0
 assert blast_radius_result["cost_score"] == 0
 
-# 70 * 0.4 = 28
+# 50 * 0.4 = 20
 assert blast_radius_result["overall_score"] == 20
 assert blast_radius_result["category"] == "low"
 
@@ -151,3 +151,24 @@ for reason in result["reasons"]:
     print("-", reason)
 
 print("\nAll risk engine assertions passed.")
+# -------------------------------------------------
+
+# Risk decision
+
+# -------------------------------------------------
+
+assert result["decision"] == "block"
+
+assert result["decision_label"] == "BLOCK"
+
+assert (
+
+    result["decision_message"]
+
+    == "This change should not proceed without risk mitigation."
+
+)
+
+print("Risk decision:", result["decision_label"])
+
+print("Risk decision assertions passed.")
