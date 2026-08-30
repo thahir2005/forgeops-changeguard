@@ -339,9 +339,7 @@ class PRAnalysisService:
                 )
             )
 
-        # A service that is directly affected should not also
-        # appear in the transitive set.
-                # A service classified as direct should never also appear
+        # A service classified as direct should never also appear
         # as transitive.
         transitively_affected_services -= (
             directly_affected_services
